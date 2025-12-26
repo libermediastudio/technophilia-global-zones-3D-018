@@ -98,10 +98,8 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
         }
         const vis = config.id === 'belt' || (d3.geoRotation(rotationRef.current)([c.lng, c.lat])[0] > -90 && d3.geoRotation(rotationRef.current)([c.lng, c.lat])[0] < 90);
         
-        // Sprawdź trafienie w punkt (z buforem)
         if (vis && Math.hypot(x - offsetX, y - offsetY) < 15) return true;
         
-        // Sprawdź trafienie w etykietę (jeśli miasto jest wybrane lub aktywne)
         if (vis && labelPosRef.current.has(c.name)) {
             const pos = labelPosRef.current.get(c.name)!;
             const canvas = canvasRef.current;
@@ -290,6 +288,9 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
   const handleEnd = () => {
     setIsDragging(false);
     dragRef.current = null;
+    // Clear hover state on mobile/end of interaction to avoid "ghost" labels
+    setHoveredItem(null);
+    onHoverChange?.(false);
   };
 
   const handleInteractionClick = (clientX: number, clientY: number) => {
@@ -300,6 +301,9 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
       const offsetY = clientY - rect.top;
       const target = findCityAt(offsetX, offsetY);
       if (target) {
+        // Clear hover immediately on selection
+        setHoveredItem(null);
+        onHoverChange?.(false);
         onSelect(target);
       }
     }
@@ -321,8 +325,8 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
           if (rect) handleMove(touch.clientX, touch.clientY, touch.clientX - rect.left, touch.clientY - rect.top);
       }}
       onTouchEnd={(e) => {
+        // For mobile, we explicitly handle interaction end to clear sticky hover
         handleEnd();
-        // Na mobile onClick może nie zadziałać stabilnie z preventDefault, wywołujemy ręcznie detekcję
         const touch = e.changedTouches[0];
         handleInteractionClick(touch.clientX, touch.clientY);
       }}
@@ -335,7 +339,6 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
     >
        <canvas ref={canvasRef} className="block w-full h-full" />
 
-       {/* MINIMAL HUD STATUS - TOP LEFT */}
        <div className="absolute top-10 left-6 md:left-10 pointer-events-none z-50 font-mono flex flex-col items-start">
           <div className="flex items-center gap-2 opacity-80">
               <Crosshair size={12} className="text-[#E42737] animate-pulse" />

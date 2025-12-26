@@ -157,7 +157,13 @@ const App: React.FC = () => {
                     selectedCity={selectedItem}
                     isVisible={listVisible}
                 />
-                {selectedItem && <DetailPanel data={selectedItem} onClose={() => setSelectedItem(null)} />}
+                {selectedItem && (
+                  <DetailPanel 
+                    data={selectedItem} 
+                    onClose={() => setSelectedItem(null)} 
+                    isMobile={isMobile}
+                  />
+                )}
               </div>
             </div>
         ) : (

@@ -6,9 +6,10 @@ import { City } from '../../types/index.ts';
 interface DetailPanelProps {
   data: City;
   onClose: () => void;
+  isMobile?: boolean;
 }
 
-export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose }) => {
+export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose, isMobile = false }) => {
   const [typedDesc, setTypedDesc] = useState('');
 
   useEffect(() => {
@@ -26,9 +27,15 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose }) => {
   const statusColor = data.status?.includes('OPTIMAL') || data.status?.includes('ONLINE') ? 'text-cyan-400' : 'text-red-500';
 
   return (
-    <div className="w-full font-mono pointer-events-none animate-fade-in">
-      <div className="pointer-events-auto flex flex-col items-start">
-         <div className="w-full flex justify-between items-center mb-4 pb-1 border-b border-white/10">
+    <div className={`
+      w-full font-mono pointer-events-none animate-fade-in
+      ${isMobile ? 'landscape:fixed landscape:inset-0 landscape:z-[200] landscape:flex landscape:items-center landscape:justify-center' : ''}
+    `}>
+      <div className={`
+        pointer-events-auto flex flex-col items-start
+        ${isMobile ? 'landscape:w-[85%] landscape:max-w-[380px] landscape:bg-[#121212] landscape:p-4 landscape:border landscape:border-[#E42737]/40 landscape:shadow-[0_0_30px_rgba(228,39,55,0.3)]' : ''}
+      `}>
+         <div className="w-full flex justify-between items-center mb-3 pb-1 border-b border-white/10">
             <span className="text-[9px] font-black tracking-[0.3em] text-[#E42737]">EXTRACTED.DAT</span>
             <button 
               onClick={onClose} 
@@ -38,7 +45,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose }) => {
             </button>
          </div>
 
-         <div className="w-full space-y-4">
+         <div className="w-full space-y-3">
             <div>
                 <h2 className="text-sm font-black text-white tracking-widest uppercase truncate max-w-full">{data.name}</h2>
                 <div className="flex items-center gap-2 mt-1">
@@ -49,16 +56,16 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose }) => {
 
             <div className="space-y-1 text-[9px] border-l border-white/10 pl-3">
                 <div className="flex justify-between">
-                    <span className="text-white/20 uppercase">TYPE</span>
-                    <span className="text-white/60 truncate max-w-[100px] text-right">{data.type || 'N/A'}</span>
+                    <span className="text-white/20 uppercase font-bold">TYPE</span>
+                    <span className="text-white/60 truncate max-w-[120px] text-right font-bold">{data.type || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-white/20 uppercase">POPULATION</span>
-                    <span className="text-white/60">{data.population || '0'}</span>
+                    <span className="text-white/20 uppercase font-bold">POPULATION</span>
+                    <span className="text-white/60 font-bold">{data.population || '0'}</span>
                 </div>
             </div>
 
-            <div className="text-[10px] text-white/50 leading-relaxed font-medium border-t border-white/5 pt-3">
+            <div className="text-[10px] text-white/50 leading-relaxed font-medium border-t border-white/5 pt-3 max-h-[80px] overflow-y-auto custom-scroll">
                 {typedDesc}
                 <span className="inline-block w-1 h-2.5 bg-[#E42737] ml-1 animate-pulse"></span>
             </div>

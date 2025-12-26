@@ -33,7 +33,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose, isMobil
     `}>
       <div className={`
         pointer-events-auto flex flex-col items-start
-        ${isMobile ? 'landscape:w-[85%] landscape:max-w-[380px] landscape:bg-[#121212] landscape:p-4 landscape:border landscape:border-[#E42737]/40 landscape:shadow-[0_0_30px_rgba(228,39,55,0.3)]' : ''}
+        ${isMobile ? 'landscape:w-[85%] landscape:max-w-[380px] landscape:p-4 landscape:border-x landscape:border-[#E42737]/20' : ''}
       `}>
          <div className="w-full flex justify-between items-center mb-3 pb-1 border-b border-white/10">
             <span className="text-[9px] font-black tracking-[0.3em] text-[#E42737]">EXTRACTED.DAT</span>

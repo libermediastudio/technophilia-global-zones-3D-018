@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Sun, Orbit, Info, Crosshair, Plus, Minus } from 'lucide-react';
 import { CelestialBodyConfig } from '../../types/index.ts';
 
@@ -32,12 +32,30 @@ export const SystemNav: React.FC<SystemNavProps> = ({
   listVisible,
   isMobile
 }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const activeItemRef = useRef<HTMLButtonElement>(null);
+
   const targetLinkIds = ['earth', 'moon', 'mars', 'belt', 'io', 'europa', 'ganymede', 'callisto'];
   const visibleBodies = bodies.filter(b => targetLinkIds.includes(b.id));
 
   const adjustZoom = (delta: number) => {
     onZoomChange(Math.max(0, Math.min(100, zoomLevel + delta)));
   };
+
+  // Auto-center active item
+  useEffect(() => {
+    if (activeItemRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const item = activeItemRef.current;
+      
+      const scrollLeft = item.offsetLeft - (container.clientWidth / 2) + (item.clientWidth / 2);
+      
+      container.scrollTo({
+        left: scrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentBodyId]);
 
   return (
     <div className="fixed bottom-0 left-0 w-full z-[100] pointer-events-none flex flex-col items-center pb-6 safe-bottom">
@@ -118,19 +136,23 @@ export const SystemNav: React.FC<SystemNavProps> = ({
 
          <div className="w-[1px] h-3 bg-white/10 mx-2"></div>
 
-         <div className="flex items-center px-4 overflow-hidden max-w-[calc(100vw-180px)] md:max-w-4xl">
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+         <div className="flex items-center px-4 overflow-hidden max-w-[calc(100vw-180px)] md:max-w-4xl relative">
+            <div 
+              ref={scrollContainerRef}
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth"
+            >
               {visibleBodies.map((body) => {
                 const isActive = body.id === currentBodyId;
                 const name = body.name === 'earth' ? 'TERRA' : body.name === 'moon' ? 'LUNA' : body.name;
                 return (
                   <button
                     key={body.id}
+                    ref={isActive ? activeItemRef : null}
                     onClick={() => onSelectBody(body.id)}
                     className={`
-                      text-[10px] font-mono tracking-[0.2em] uppercase font-black whitespace-nowrap px-4 py-1.5 border transition-all
+                      text-[10px] font-mono tracking-[0.2em] uppercase font-black whitespace-nowrap px-4 py-1.5 border transition-all duration-500
                       ${isActive 
-                        ? 'text-white border-[#E42737] bg-[#E42737]/5' 
+                        ? 'text-white border-[#E42737] bg-[#E42737]/10' 
                         : 'text-white/20 border-transparent hover:text-white/60 hover:border-white/10'}
                     `}
                   >

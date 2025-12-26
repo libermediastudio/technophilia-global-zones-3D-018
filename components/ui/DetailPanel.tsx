@@ -53,7 +53,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ data, onClose }) => {
                     <span className="text-white/60 truncate max-w-[100px] text-right">{data.type || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-white/20 uppercase">POP</span>
+                    <span className="text-white/20 uppercase">POPULATION</span>
                     <span className="text-white/60">{data.population || '0'}</span>
                 </div>
             </div>

@@ -28,10 +28,10 @@ export const BodyInfo: React.FC<BodyInfoProps> = ({ config, isVisible = true }) 
                 {config.stats && (
                     <div className="space-y-1.5 border-l border-white/10 pl-2 md:pl-3">
                         {[
-                            { icon: Users, label: 'POP', value: config.stats.population, color: '#00FFFF' },
-                            { icon: Thermometer, label: 'TEMP', value: config.stats.temperature, color: '#FFF' },
-                            { icon: ArrowDown, label: 'GRV', value: config.stats.gravity, color: '#94a3b8' },
-                            { icon: Wind, label: 'ATMO', value: config.stats.atmosphere, color: '#94a3b8' }
+                            { icon: Users, label: 'POPULATION', value: config.stats.population, color: '#00FFFF' },
+                            { icon: Thermometer, label: 'TEMPERATURE', value: config.stats.temperature, color: '#FFF' },
+                            { icon: ArrowDown, label: 'GRAVITY', value: config.stats.gravity, color: '#94a3b8' },
+                            { icon: Wind, label: 'ATMOSPHERE', value: config.stats.atmosphere, color: '#94a3b8' }
                         ].map((stat, idx) => (
                             <div key={idx} className="flex flex-col md:flex-row md:justify-between items-start md:items-center py-0.5 gap-0.5 md:gap-0">
                                 <span className="text-[7px] md:text-[8px] text-white/30 tracking-[0.1em] md:tracking-[0.2em] uppercase font-bold">{stat.label}</span>

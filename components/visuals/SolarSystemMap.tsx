@@ -19,7 +19,6 @@ interface SolarSystemMapProps {
 const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
 const AU = 130;
-// Neutral color for passive planets
 const PASSIVE_COLOR = '#64748b'; 
 
 const ORBIT_CONFIG: Record<string, { distance: number; speed: number; startAngle: number; size: number; color: string; focusZoom: number }> = {
@@ -61,6 +60,8 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
   const labelPosRef = useRef<Map<string, { x: number, y: number }>>(new Map());
   const animationRef = useRef<number>(0);
   const isTrackingRef = useRef(false);
+  
+  const lastPinchDistRef = useRef<number | null>(null);
 
   const targetIds = ['earth', 'moon', 'mars', 'belt', 'io', 'europa', 'ganymede', 'callisto'];
   const passivePlanetIds = ['mercury', 'venus', 'jupiter', 'saturn', 'uranus', 'neptune'];
@@ -83,6 +84,13 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
     }
   }));
 
+  const notifyZoomChange = useCallback(() => {
+    if (onZoomAutoChange) {
+      const percent = Math.round(((targetZoomRef.current - MIN_Z) / (MAX_Z - MIN_Z)) * 100);
+      onZoomAutoChange(Math.max(0, Math.min(100, percent)));
+    }
+  }, [onZoomAutoChange, MIN_Z, MAX_Z]);
+
   useEffect(() => {
     const stars = []; for (let i = 0; i < 600; i++) stars.push({ x: Math.random() * 2000, y: Math.random() * 1000, opacity: Math.random() });
     starfieldRef.current = stars;
@@ -94,16 +102,14 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
     beltParticlesRef.current = beltParts;
   }, []);
 
+  // Update zoom target on body change - only if currentBodyId changes
   useEffect(() => {
     if (!currentBodyId || !ORBIT_CONFIG[currentBodyId]) return;
     isTrackingRef.current = true;
     const targetZ = Math.max(MIN_Z, ORBIT_CONFIG[currentBodyId].focusZoom);
     targetZoomRef.current = targetZ;
-    if (onZoomAutoChange) {
-        const percent = Math.round(((targetZ - MIN_Z) / (MAX_Z - MIN_Z)) * 100);
-        onZoomAutoChange(Math.max(0, Math.min(100, percent)));
-    }
-  }, [currentBodyId, onZoomAutoChange, MIN_Z, MAX_Z]);
+    notifyZoomChange();
+  }, [currentBodyId]); // Only depend on currentBodyId
 
   const project3D = (x: number, y: number, z: number, cx: number, cy: number, rotX: number, rotY: number, scale: number, focusX: number, focusZ: number) => {
       const rx = x - focusX; const rz = z - focusZ; const ry = y;
@@ -143,6 +149,10 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
     const cx = width / 2; const cy = height / 2; 
     const t = time * 0.00004; 
     
+    // Zoom logic - outside tracking block so it always applies
+    const zoomDiff = targetZoomRef.current - zoomRef.current;
+    if (Math.abs(zoomDiff) > 0.0001) zoomRef.current += zoomDiff * 0.08;
+
     let targetWorldPos = { x: 0, z: 0 };
     if (currentBodyId && ORBIT_CONFIG[currentBodyId]) {
         const conf = ORBIT_CONFIG[currentBodyId];
@@ -164,11 +174,10 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
             targetWorldPos.x = Math.cos(angle) * conf.distance;
             targetWorldPos.z = Math.sin(angle) * conf.distance;
         }
+        
+        // Smoothing camera position
         cameraFocusRef.current.x += (targetWorldPos.x - cameraFocusRef.current.x) * 0.1;
         cameraFocusRef.current.z += (targetWorldPos.z - cameraFocusRef.current.z) * 0.1;
-        
-        const zoomDiff = targetZoomRef.current - zoomRef.current;
-        if (Math.abs(zoomDiff) > 0.0001) zoomRef.current += zoomDiff * 0.08;
         
         if (isTrackingRef.current) {
             const absAngle = Math.atan2(targetWorldPos.z, targetWorldPos.x);
@@ -186,7 +195,6 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
     });
     ctx.globalAlpha = 1;
 
-    // --- SUBTLE SOLID AU RINGS RENDERING ---
     const majorAUs = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30];
     for (let i = 1; i <= 31; i++) {
         const isMajor = majorAUs.includes(i);
@@ -313,7 +321,6 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
         if (!labelPosRef.current.has(obj.id)) labelPosRef.current.set(obj.id, { x: best.x, y: best.y });
         const cur = labelPosRef.current.get(obj.id)!; cur.x += (best.x - cur.x) * 0.15; cur.y += (best.y - cur.y) * 0.15;
 
-        // Connector line
         ctx.strokeStyle = isTarget ? ((isHover || isSelected) ? '#FFF' : 'rgba(228, 39, 55, 0.4)') : ORBIT_CONFIG[obj.id]?.color || '#FFF';
         ctx.beginPath(); ctx.moveTo(obj.x, obj.y); ctx.lineTo(cur.x + boxW/2, cur.y + boxH/2); ctx.stroke();
 
@@ -323,7 +330,6 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
             ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.fillStyle = (isHover || isSelected) ? '#000' : '#FFF'; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(name, cur.x + boxW/2, cur.y + boxH/2);
         } else {
-            // Passive text label - no box, using planet color
             ctx.fillStyle = ORBIT_CONFIG[obj.id]?.color || '#FFF';
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.fillText(name, cur.x + boxW/2, cur.y + boxH/2);
@@ -331,7 +337,7 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
     });
     
     (canvasRef.current as any).hitRegions = renderQueue;
-  }, [dims, currentBodyId, targetIds, jovianMoons, zoomRef, MIN_Z, MAX_Z, passivePlanetIds]);
+  }, [dims, currentBodyId, targetIds, jovianMoons, passivePlanetIds]);
 
   useEffect(() => {
     const loop = (time: number) => { render(time); animationRef.current = requestAnimationFrame(loop); };
@@ -358,7 +364,6 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
         if (found !== hoveredBodyRef.current) { 
             hoveredBodyRef.current = found; 
             onHoverChange?.(!!found); 
-            // Przywróć kursor pointer jeśli najeżdżamy na ciało, w przeciwnym razie usuń nadpisanie stylu
             canvasRef.current.style.cursor = found ? 'pointer' : '';
         }
     }
@@ -367,12 +372,14 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
   const handleEnd = () => {
     setIsDragging(false);
     dragRef.current = null;
+    lastPinchDistRef.current = null;
   };
 
   const handleWheel = (e: React.WheelEvent) => {
     if (interactionsEnabled) {
       const delta = -e.deltaY * 0.001;
       targetZoomRef.current = Math.max(MIN_Z, Math.min(MAX_Z, targetZoomRef.current + delta));
+      notifyZoomChange();
     }
   };
 
@@ -394,17 +401,34 @@ export const SolarSystemMap = forwardRef<SolarSystemMapHandle, SolarSystemMapPro
         onMouseMove={(e) => handleMove(e.clientX, e.clientY)} 
         onMouseUp={handleEnd}
         onMouseLeave={handleEnd}
-        onTouchStart={(e) => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }}
-        onTouchMove={(e) => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }}
+        onTouchStart={(e) => { 
+            if (e.touches.length === 2) {
+                lastPinchDistRef.current = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            } else {
+                handleStart(e.touches[0].clientX, e.touches[0].clientY); 
+            }
+        }}
+        onTouchMove={(e) => { 
+            if (e.touches.length === 2 && lastPinchDistRef.current !== null) {
+                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                const delta = (dist - lastPinchDistRef.current) * 0.01;
+                targetZoomRef.current = Math.max(MIN_Z, Math.min(MAX_Z, targetZoomRef.current + delta));
+                lastPinchDistRef.current = dist;
+                notifyZoomChange();
+            } else {
+                handleMove(e.touches[0].clientX, e.touches[0].clientY); 
+            }
+        }}
         onTouchEnd={(e) => {
           handleEnd();
-          const touch = e.changedTouches[0];
-          handleInteractionClick(touch.clientX, touch.clientY);
+          if (e.changedTouches.length === 1 && e.touches.length === 0) {
+            const touch = e.changedTouches[0];
+            handleInteractionClick(touch.clientX, touch.clientY);
+          }
         }}
         onWheel={handleWheel}
         onClick={(e) => handleInteractionClick(e.clientX, e.clientY)} />
         
-      {/* MINIMAL TACTICAL MAP STATUS - TOP LEFT */}
       <div className="absolute top-10 left-6 md:left-10 z-50 pointer-events-none transition-all duration-500 font-mono flex flex-col items-start">
           <div className="flex items-center gap-2 opacity-80">
               <Crosshair size={12} className="text-[#E42737] animate-pulse" />

@@ -47,7 +47,6 @@ const App: React.FC = () => {
         setInfoVisible(true);
         setListVisible(true);
       } else {
-        // Default to hidden panels on mobile for better visibility
         setInfoVisible(false);
         setListVisible(false);
       }
@@ -82,11 +81,15 @@ const App: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, [isActivated, isMobile]);
 
-  const handleZoomChange = (val: number) => {
+  const handleZoomChange = useCallback((val: number) => {
     setZoomLevel(val);
     if (viewMode === 'ORBIT') globeRef.current?.setZoom(val);
     else mapRef.current?.setZoom(val);
-  };
+  }, [viewMode]);
+
+  const handleAutoZoomChange = useCallback((val: number) => {
+    setZoomLevel(val);
+  }, []);
 
   const handleBodySelection = (id: string) => {
     setActiveBodyId(id);
@@ -104,7 +107,6 @@ const App: React.FC = () => {
 
   const handleCitySelect = (city: City) => {
     setSelectedItem(city);
-    // Usunięto automatyczne ukrywanie paneli na mobile, aby spełnić wymaganie użytkownika
   };
 
   return (
@@ -142,13 +144,12 @@ const App: React.FC = () => {
                   onSelect={handleCitySelect}
                   selectedCity={selectedItem}
                   onHoverChange={setIsHovering}
+                  onZoomAutoChange={handleAutoZoomChange}
                   interactionsEnabled={isActivated}
               />
               
-              {/* Left Column: System Info */}
               <BodyInfo config={activeConfig} isVisible={infoVisible} />
               
-              {/* Right Column: Target List & Detail Panel */}
               <div className="absolute top-24 right-2 md:right-10 w-[46%] sm:w-[240px] pointer-events-none z-30 flex flex-col gap-8">
                 <LocationList 
                     data={activeConfig.data}
@@ -167,11 +168,10 @@ const App: React.FC = () => {
                   currentBodyId={activeBodyId}
                   onSelect={handleMapSelection} 
                   onHoverChange={setIsHovering}
-                  onZoomAutoChange={setZoomLevel}
+                  onZoomAutoChange={handleAutoZoomChange}
                   interactionsEnabled={isActivated}
                />
                <BodyInfo config={activeConfig} isVisible={infoVisible} />
-               {/* Usunięto SystemList zgodnie z prośbą użytkownika */}
             </div>
         )}
       </div>

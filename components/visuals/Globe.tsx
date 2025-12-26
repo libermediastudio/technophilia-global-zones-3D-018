@@ -16,13 +16,14 @@ interface GlobeProps {
   onSelect: (city: City) => void;
   selectedCity: City | null;
   onHoverChange?: (isHovering: boolean) => void;
+  onZoomAutoChange?: (percent: number) => void;
   interactionsEnabled?: boolean;
 }
 
 const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
 export const Globe = forwardRef<GlobeHandle, GlobeProps>(({ 
-  config, onSelect, selectedCity, onHoverChange, interactionsEnabled = true
+  config, onSelect, selectedCity, onHoverChange, onZoomAutoChange, interactionsEnabled = true
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,6 +39,9 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
   const isAnimatingRef = useRef(false);
   const lastMoveRef = useRef<{ x: number, y: number, time: number } | null>(null);
   const animationRef = useRef<number>(0);
+  
+  // Ref for pinch-to-zoom
+  const lastPinchDistRef = useRef<number | null>(null);
 
   const worldDataRef = useRef<any>(null);
   const landDataRef = useRef<any>(null);
@@ -79,6 +83,13 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
         requestAnimationFrame(step);
     }
   }));
+
+  const notifyZoomChange = useCallback(() => {
+    if (onZoomAutoChange) {
+      const percent = Math.round(((targetScaleRef.current - MIN_SCALE) / (MAX_SCALE - MIN_SCALE)) * 100);
+      onZoomAutoChange(Math.max(0, Math.min(100, percent)));
+    }
+  }, [onZoomAutoChange, MIN_SCALE, MAX_SCALE]);
 
   const findCityAt = useCallback((offsetX: number, offsetY: number) => {
     if (dims.width === 0) return null;
@@ -288,7 +299,7 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
   const handleEnd = () => {
     setIsDragging(false);
     dragRef.current = null;
-    // Clear hover state on mobile/end of interaction to avoid "ghost" labels
+    lastPinchDistRef.current = null;
     setHoveredItem(null);
     onHoverChange?.(false);
   };
@@ -301,7 +312,6 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
       const offsetY = clientY - rect.top;
       const target = findCityAt(offsetX, offsetY);
       if (target) {
-        // Clear hover immediately on selection
         setHoveredItem(null);
         onHoverChange?.(false);
         onSelect(target);
@@ -317,22 +327,39 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(({
       onMouseMove={(e) => handleMove(e.clientX, e.clientY, e.nativeEvent.offsetX, e.nativeEvent.offsetY)}
       onMouseUp={handleEnd}
       onMouseLeave={handleEnd}
-      onTouchStart={(e) => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }}
+      onTouchStart={(e) => { 
+          e.preventDefault(); 
+          if (e.touches.length === 2) {
+              lastPinchDistRef.current = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          } else {
+              handleStart(e.touches[0].clientX, e.touches[0].clientY); 
+          }
+      }}
       onTouchMove={(e) => {
           e.preventDefault();
-          const touch = e.touches[0];
-          const rect = canvasRef.current?.getBoundingClientRect();
-          if (rect) handleMove(touch.clientX, touch.clientY, touch.clientX - rect.left, touch.clientY - rect.top);
+          if (e.touches.length === 2 && lastPinchDistRef.current !== null) {
+              const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+              const delta = (dist - lastPinchDistRef.current) * 2;
+              targetScaleRef.current = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScaleRef.current + delta));
+              lastPinchDistRef.current = dist;
+              notifyZoomChange();
+          } else {
+              const touch = e.touches[0];
+              const rect = canvasRef.current?.getBoundingClientRect();
+              if (rect) handleMove(touch.clientX, touch.clientY, touch.clientX - rect.left, touch.clientY - rect.top);
+          }
       }}
       onTouchEnd={(e) => {
-        // For mobile, we explicitly handle interaction end to clear sticky hover
         handleEnd();
-        const touch = e.changedTouches[0];
-        handleInteractionClick(touch.clientX, touch.clientY);
+        if (e.changedTouches.length === 1 && e.touches.length === 0) {
+           const touch = e.changedTouches[0];
+           handleInteractionClick(touch.clientX, touch.clientY);
+        }
       }}
       onWheel={(e) => {
         if (interactionsEnabled) {
           targetScaleRef.current = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScaleRef.current - e.deltaY * 0.5));
+          notifyZoomChange();
         }
       }} 
       onClick={(e) => handleInteractionClick(e.clientX, e.clientY)}
